@@ -1,0 +1,10 @@
+body { margin:0; background:#1e1e1e; color:white; font-family:monospace; }
+#navbar { position:fixed; top:0; width:100%; z-index:10; }
+#container { display:flex; height:100vh; margin-top:50px; }
+#output-panel { width:30%; background:#252526; padding:10px; overflow-y:auto; transition: all 0.3s ease; }
+#editor { width:70%; height:100%; }
+.panel-section { margin-bottom:15px; padding:5px; border-bottom:1px solid #444; }
+.panel-section h4 { margin:0 0 5px 0; color:#f9f9f9; }
+#run-btn { margin-left:10px; }
+pre { white-space: pre-wrap; word-wrap: break-word; color:#f9f9f9; font-family:monospace; }
+.ui.dropdown { background:#1e1e1e; color:white; border:1px solid #444; }

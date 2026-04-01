@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom IDE</title>
+
+<!-- Semantic UI for styling -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+
+<!-- Monaco Editor -->
+<script>
+var require = {
+    paths: { "vs": "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs" }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<div class="ui top fixed borderless menu" id="navbar">
+    <div class="item"><b>My Compiler</b></div>
+    <div class="item">
+        <button id="run-btn" class="ui primary button">▶ Run Code</button>
+    </div>
+    <div class="item">
+        <select id="lang-select" class="ui dropdown">
+            <option value="c">C</option>
+            <option value="cpp">C++</option>
+        </select>
+    </div>
+    <div class="item">
+        <select id="mode-select" class="ui dropdown">
+            <option value="beginner">Beginner Mode</option>
+            <option value="advanced">Advanced Mode</option>
+        </select>
+    </div>
+</div>
+
+<!-- MAIN CONTAINER -->
+<div id="container">
+    <!-- LEFT PANEL -->
+    <div id="output-panel">
+        <div class="panel-section">
+            <h4>⚙️ Output</h4>
+            <pre id="output">Waiting for code execution...</pre>
+        </div>
+        <div class="panel-section">
+            <h4>❌ Errors</h4>
+            <pre id="errors">No errors yet.</pre>
+        </div>
+        <div class="panel-section">
+            <h4>🧠 Analysis</h4>
+            <pre id="analysis">Analysis will appear here.</pre>
+        </div>
+        <div class="panel-section">
+            <h4>⚡ Complexity</h4>
+            <pre id="complexity">-</pre>
+        </div>
+        <div class="panel-section">
+            <h4>💡 Suggestions</h4>
+            <pre id="suggestions">Suggestions will appear here.</pre>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="editor"></div>
+</div>
+
+<script src="js/main.js"></script>
+
+</body>
+</html>
