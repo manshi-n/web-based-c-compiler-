@@ -1,77 +1,168 @@
 <!DOCTYPE html>
-<html lang="en-US">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Custom IDE</title>
+<title>AI Compiler</title>
 
-<!-- Semantic UI for styling -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+<style>
+:root {
+    --bg: #1e1e24;
+    --card: #2a2a30;
+    --accent: #21ba45;
+}
 
-<!-- Monaco Editor -->
+body {
+    margin: 0;
+    background: var(--bg);
+    color: #fff;
+    font-family: Segoe UI;
+}
+
+/* TOP BAR */
+#topbar {
+    height: 50px;
+    background: #111;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+}
+
+button {
+    background: var(--accent);
+    border: none;
+    padding: 8px 20px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* LAYOUT FIXED */
+#container {
+    display: grid;
+    grid-template-columns: 65% 35%;  /* 🔥 bigger right panel */
+    height: calc(100vh - 50px);
+}
+
+/* EDITOR */
+#editor {
+    height: 100%;
+}
+
+/* RIGHT PANEL */
+#right {
+    padding: 10px;
+    overflow-y: auto;
+}
+
+/* CARDS */
+.card {
+    background: var(--card);
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border-left: 4px solid var(--accent);
+}
+
+.card h3 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: #aaa;
+}
+
+pre {
+    margin: 0;
+    font-size: 13px;
+    white-space: pre-wrap;
+}
+</style>
+
 <script>
-var require = {
-    paths: { "vs": "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs" }
-};
+var require = { paths: { "vs": "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs" } };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
 
-<link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
-<!-- NAVBAR -->
-<div class="ui top fixed borderless menu" id="navbar">
-    <div class="item"><b>My Compiler</b></div>
-    <div class="item">
-        <button id="run-btn" class="ui primary button">▶ Run Code</button>
-    </div>
-    <div class="item">
-        <select id="lang-select" class="ui dropdown">
-            <option value="c">C</option>
-            <option value="cpp">C++</option>
-        </select>
-    </div>
-    <div class="item">
-        <select id="mode-select" class="ui dropdown">
-            <option value="beginner">Beginner Mode</option>
-            <option value="advanced">Advanced Mode</option>
-        </select>
-    </div>
+<div id="topbar">
+    <button onclick="runCode()">▶ RUN & ANALYZE</button>
 </div>
 
-<!-- MAIN CONTAINER -->
 <div id="container">
-    <!-- LEFT PANEL -->
-    <div id="output-panel">
-        <div class="panel-section">
-            <h4>⚙️ Output</h4>
-            <pre id="output">Waiting for code execution...</pre>
-        </div>
-        <div class="panel-section">
-            <h4>❌ Errors</h4>
-            <pre id="errors">No errors yet.</pre>
-        </div>
-        <div class="panel-section">
-            <h4>🧠 Analysis</h4>
-            <pre id="analysis">Analysis will appear here.</pre>
-        </div>
-        <div class="panel-section">
-            <h4>⚡ Complexity</h4>
-            <pre id="complexity">-</pre>
-        </div>
-        <div class="panel-section">
-            <h4>💡 Suggestions</h4>
-            <pre id="suggestions">Suggestions will appear here.</pre>
-        </div>
+
+    <div id="editor"></div>
+
+    <div id="right">
+        <div class="card"><h3>🔴 BEFORE</h3><pre id="before">-</pre></div>
+        <div class="card"><h3>🟢 AFTER</h3><pre id="after">-</pre></div>
+        <div class="card"><h3>💡 EXPLANATION</h3><pre id="explanation">-</pre></div>
+        <div class="card"><h3>⚙️ OUTPUT</h3><pre id="output">-</pre></div>
+        <div class="card"><h3>❌ ERRORS</h3><pre id="errors">-</pre></div>
+        <div class="card"><h3>⚡ COMPLEXITY</h3><pre id="complexity">-</pre></div>
+        <div class="card"><h3>🛡️ SAFETY</h3><pre id="safety">-</pre></div>
     </div>
 
-    <!-- RIGHT PANEL -->
-    <div id="editor"></div>
 </div>
 
-<script src="js/main.js"></script>
+<script>
+let editor;
+
+require(["vs/editor/editor.main"], function () {
+    editor = monaco.editor.create(document.getElementById("editor"), {
+        value: `#include <stdio.h>\nint main(){return 0;}`,
+        language: "c",
+        theme: "vs-dark",
+        automaticLayout: true
+    });
+});
+
+async function runCode() {
+
+    const code = editor.getValue();
+
+    document.getElementById("before").textContent = code;
+    document.getElementById("output").textContent = "Running...";
+    document.getElementById("errors").textContent = "...";
+
+    try {
+        /* COMPILE */
+        const comp = await fetch("http://localhost:5000/compile", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({code,language:"c"})
+        });
+
+        const compData = await comp.json();
+
+        document.getElementById("output").textContent = compData.output;
+        document.getElementById("errors").textContent =
+            compData.compileError || compData.runtimeError || "No errors ✅";
+
+        /* AI ANALYSIS ONLY */
+        const ana = await fetch("http://localhost:5000/analyze", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                code,
+                mode:"ai",
+                compileError: compData.compileError,
+                runtimeError: compData.runtimeError
+            })
+        });
+
+        const data = await ana.json();
+
+        document.getElementById("after").textContent = data.after;
+        document.getElementById("explanation").textContent = data.explanation;
+        document.getElementById("complexity").textContent = data.complexity;
+        document.getElementById("safety").textContent = data.safety;
+
+    } catch (err) {
+        document.getElementById("errors").textContent = err.message;
+    }
+}
+</script>
 
 </body>
 </html>
