@@ -7,56 +7,34 @@ const path = require('path');
 const Groq = require("groq-sdk");
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
-
-/* ---------- FRONTEND CONNECTION ---------- */
-
-app.use(express.static(path.join(__dirname, '../frontend')));
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
-});
-
-/* ---------- GROQ ---------- */
 
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
 });
 
-/* ---------- TEMP ---------- */
-
 const TEMP_DIR = path.join(__dirname, 'temp');
-
-if (!fs.existsSync(TEMP_DIR)) {
-    fs.mkdirSync(TEMP_DIR);
-}
+if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
 /* ---------- CLEAN CODE ---------- */
-
 function cleanCode(code) {
     return code ? code.replace(/```[a-z]*|```/g, "").trim() : "";
 }
 
 /* ---------- FALLBACK COMPLEXITY ---------- */
-
 function estimateComplexity(code) {
-
     const loops = (code.match(/\b(for|while)\b/g) || []).length;
 
     if (loops === 0) return "O(1)";
     if (loops === 1) return "O(n)";
     if (loops === 2) return "O(n^2)";
     if (loops === 3) return "O(n^3)";
-
     return "O(n^k)";
 }
 
 /* ---------- FALLBACK SAFETY ---------- */
-
 function safetyScore(code) {
-
     let score = 100;
 
     if (/gets\s*\(/.test(code)) score -= 40;
@@ -69,15 +47,10 @@ function safetyScore(code) {
 }
 
 /* ---------- AI ---------- */
-
 async function getAISuggestion(code, compileError, runtimeError) {
-
     try {
-
         const response = await groq.chat.completions.create({
-
             model: "llama-3.3-70b-versatile",
-
             messages: [
                 {
                     role: "system",
@@ -97,7 +70,7 @@ ${compileError || runtimeError || "None"}
 RULES:
 1. Fix ALL bugs
 2. Maintain correct logic
-3. Calculate REAL time complexity
+3. Calculate REAL time complexity (based on nesting, not just counting loops)
 4. Calculate SAFETY score using:
    gets() → -40
    strcpy() → -25
@@ -130,28 +103,22 @@ X%
 `
                 }
             ],
-
             temperature: 0.2
         });
 
         return response.choices[0].message.content;
 
     } catch (err) {
-
         console.log("❌ GROQ ERROR:", err.message);
-
         return null;
     }
 }
 
 /* ---------- EXTRACT ---------- */
-
 function extractBlock(text, label) {
-
     if (!text) return "-";
 
     const regex = new RegExp(label + ":[\\s\\S]*?(?=\\n[A-Z_]+:|$)", "i");
-
     const match = text.match(regex);
 
     if (!match) return "-";
@@ -163,9 +130,7 @@ function extractBlock(text, label) {
 }
 
 /* ---------- VALIDATE ---------- */
-
 function isValidAI(text) {
-
     return text &&
         text.includes("AFTER:") &&
         text.includes("EXPLANATION:") &&
@@ -176,19 +141,14 @@ function isValidAI(text) {
 }
 
 /* ---------- COMPILE ---------- */
-
 app.post('/compile', (req, res) => {
-
     let { code, language } = req.body;
-
     code = cleanCode(code);
 
     const ext = language === 'cpp' ? 'cpp' : 'c';
-
     const id = Date.now();
 
     const file = path.join(TEMP_DIR, `prog_${id}.${ext}`);
-
     const exe = path.join(TEMP_DIR, `prog_${id}.exe`);
 
     fs.writeFileSync(file, code);
@@ -200,9 +160,7 @@ app.post('/compile', (req, res) => {
     exec(cmd, (compileErr, stdout, stderr) => {
 
         if (compileErr) {
-
             fs.existsSync(file) && fs.unlinkSync(file);
-
             return res.json({
                 output: "",
                 compileError: stderr || compileErr.message,
@@ -211,7 +169,6 @@ app.post('/compile', (req, res) => {
         }
 
         if (stderr) {
-
             return res.json({
                 output: "",
                 compileError: stderr,
@@ -222,11 +179,9 @@ app.post('/compile', (req, res) => {
         const child = spawn(exe, [], { stdio: 'pipe' });
 
         let output = "";
-
         let error = "";
 
         child.stdin.write("test\n");
-
         child.stdin.end();
 
         child.stdout.on("data", (data) => {
@@ -243,20 +198,15 @@ app.post('/compile', (req, res) => {
 
             if (signal === "SIGSEGV") {
                 runtimeMsg = "Segmentation Fault (Invalid memory access)";
-            }
-            else if (signal === "SIGFPE") {
+            } else if (signal === "SIGFPE") {
                 runtimeMsg = "Division by zero error";
-            }
-            else if (code !== 0) {
+            } else if (code !== 0) {
                 runtimeMsg = `Runtime Error (exit code ${code})`;
             }
 
             try {
-
                 fs.existsSync(file) && fs.unlinkSync(file);
-
                 fs.existsSync(exe) && fs.unlinkSync(exe);
-
             } catch {}
 
             res.json({
@@ -269,27 +219,19 @@ app.post('/compile', (req, res) => {
 });
 
 /* ---------- ANALYZE ---------- */
-
 app.post('/analyze', async (req, res) => {
-
     let { code, compileError, runtimeError } = req.body;
-
     code = cleanCode(code);
 
     const beforeComplexity = estimateComplexity(code);
-
     const beforeSafety = safetyScore(code);
 
     const aiText = await getAISuggestion(code, compileError, runtimeError);
 
     if (!isValidAI(aiText)) {
-
         return res.json({
-
             before: code,
-
             after: code,
-
             explanation: "⚠️ AI failed",
 
             complexity:
@@ -305,19 +247,14 @@ After: ${beforeSafety}`
     const afterCode = extractBlock(aiText, "AFTER");
 
     const beforeC = extractBlock(aiText, "COMPLEXITY_BEFORE");
-
     const afterC = extractBlock(aiText, "COMPLEXITY_AFTER");
 
     const beforeS = extractBlock(aiText, "SAFETY_BEFORE");
-
     const afterS = extractBlock(aiText, "SAFETY_AFTER");
 
     res.json({
-
         before: extractBlock(aiText, "BEFORE") || code,
-
         after: afterCode,
-
         explanation: extractBlock(aiText, "EXPLANATION"),
 
         complexity:
@@ -331,9 +268,6 @@ After: ${afterS || safetyScore(afterCode)}`
 });
 
 /* ---------- START ---------- */
-
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-    console.log(`🚀 Backend running on port ${PORT}`);
+app.listen(5000, () => {
+    console.log("🚀 Backend running on http://localhost:5000");
 });
