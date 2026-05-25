@@ -49,15 +49,18 @@ function cleanCode(code) {
 
 function estimateComplexity(code) {
 
+    const nestedLoopPattern =
+        /for[\s\S]*?{[\s\S]*?(for|while)|while[\s\S]*?{[\s\S]*?(for|while)/;
+
     const loops =
         (code.match(/\b(for|while)\b/g) || []).length;
 
-    if (loops === 0) return "O(1)";
+    if (nestedLoopPattern.test(code)) return "O(n^2)";
     if (loops === 1) return "O(n)";
-    if (loops === 2) return "O(n^2)";
-    if (loops === 3) return "O(n^3)";
+    if (loops === 0) return "O(1)";
+    if (loops >= 3) return "O(n^k)";
 
-    return "O(n^k)";
+    return "O(n)";
 }
 
 /* ---------- FALLBACK SAFETY ---------- */
@@ -150,6 +153,9 @@ X%
                 temperature: 0.2
             });
 
+        console.log("✅ GROQ RESPONSE:");
+        console.log(response.choices[0].message.content);
+
         return response.choices[0].message.content;
 
     } catch (err) {
@@ -211,8 +217,11 @@ app.post('/compile', (req, res) => {
     const file =
         path.join(TEMP_DIR, `prog_${id}.${ext}`);
 
-    const exe =
-        path.join(TEMP_DIR, `prog_${id}.exe`);
+    /* ---------- WINDOWS + LINUX SUPPORT ---------- */
+
+    const exe = process.platform === "win32"
+        ? path.join(TEMP_DIR, `prog_${id}.exe`)
+        : path.join(TEMP_DIR, `prog_${id}`);
 
     fs.writeFileSync(file, code);
 
@@ -221,9 +230,13 @@ app.post('/compile', (req, res) => {
             ? `g++ -Wall -Wextra "${file}" -o "${exe}"`
             : `gcc -Wall -Wextra "${file}" -o "${exe}"`;
 
+    console.log("🛠 Compile Command:", cmd);
+
     exec(cmd, (compileErr, stdout, stderr) => {
 
         if (compileErr) {
+
+            console.log("❌ COMPILE ERROR:", compileErr.message);
 
             fs.existsSync(file) &&
                 fs.unlinkSync(file);
@@ -278,6 +291,18 @@ app.post('/compile', (req, res) => {
 
                 runtimeMsg =
                     "Division by zero error";
+            }
+
+            else if (code === 3221225477 || code === 136) {
+
+                runtimeMsg =
+                    "Division by zero error";
+            }
+
+            else if (code === 3221225620) {
+
+                runtimeMsg =
+                    "Memory access violation / buffer overflow";
             }
 
             else if (code !== 0) {
