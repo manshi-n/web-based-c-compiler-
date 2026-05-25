@@ -220,7 +220,7 @@ app.post('/compile', (req, res) => {
     /* ---------- WINDOWS + LINUX SUPPORT ---------- */
 
     const exe = process.platform === "win32"
-        ? path.join(TEMP_DIR, `prog_${id}.exe`)
+        ? path.join(TEMP_DIR, `prog_${id}.`)
         : path.join(TEMP_DIR, `prog_${id}`);
 
     fs.writeFileSync(file, code);
