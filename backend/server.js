@@ -130,10 +130,16 @@ BEFORE:
 ${code}
 
 AFTER:
-<fixed code>
+<fixed and optimized C code with no errors or bugs>
 
 EXPLANATION:
-<short explanation>
+- Short explanation in bullet points
+- Must include:
+  • What was wrong in original code
+  • What was fixed
+  • Why improvement is better
+  • Time complexity comparison (before vs after)
+  • Safety reasoning (before vs after)
 
 COMPLEXITY_BEFORE:
 O(...)
@@ -217,11 +223,12 @@ app.post('/compile', (req, res) => {
     const file =
         path.join(TEMP_DIR, `prog_${id}.${ext}`);
 
-    /* ---------- WINDOWS + LINUX SUPPORT ---------- */
+    /* ---------- WINDOWS + LINUX EXECUTABLE ---------- */
 
-    const exe = process.platform === "win32"
-        ? path.join(TEMP_DIR, `prog_${id}.`)
-        : path.join(TEMP_DIR, `prog_${id}`);
+    const exe =
+        process.platform === "win32"
+            ? path.join(TEMP_DIR, `prog_${id}.exe`)
+            : path.join(TEMP_DIR, `prog_${id}`);
 
     fs.writeFileSync(file, code);
 
@@ -234,39 +241,46 @@ app.post('/compile', (req, res) => {
 
     exec(cmd, (compileErr, stdout, stderr) => {
 
+        /* ---------- COMPILE ERROR ---------- */
+
         if (compileErr) {
 
-            console.log("❌ COMPILE ERROR:", compileErr.message);
+            console.log("❌ COMPILE ERROR:");
+            console.log(stderr || compileErr.message);
 
-            fs.existsSync(file) &&
-                fs.unlinkSync(file);
+            try {
+                fs.existsSync(file) && fs.unlinkSync(file);
+            } catch {}
 
             return res.json({
                 output: "",
-                compileError:
-                    stderr || compileErr.message,
+                compileError: stderr || compileErr.message,
                 runtimeError: ""
             });
         }
 
-        if (stderr) {
+        /* ---------- WARNINGS ---------- */
 
-            return res.json({
-                output: "",
-                compileError: stderr,
-                runtimeError: ""
-            });
+        let warnings = "";
+
+        if (stderr && stderr.trim() !== "") {
+            warnings = stderr;
         }
 
-        const child =
-            spawn(exe, [], { stdio: 'pipe' });
+        console.log("✅ COMPILE SUCCESS");
+
+        /* ---------- RUN PROGRAM ---------- */
+
+        const child = spawn(exe, [], {
+            stdio: ['pipe', 'pipe', 'pipe']
+        });
 
         let output = "";
-
         let error = "";
 
-        child.stdin.write("test\n");
+        /* ---------- AUTO INPUT ---------- */
 
+        child.stdin.write("test\n");
         child.stdin.end();
 
         child.stdout.on("data", (data) => {
@@ -277,9 +291,30 @@ app.post('/compile', (req, res) => {
             error += data.toString();
         });
 
+        /* ---------- TIMEOUT ---------- */
+
+        const timeout = setTimeout(() => {
+
+            child.kill();
+
+            return res.json({
+                output,
+                compileError: warnings,
+                runtimeError: "Execution timeout (possible infinite loop)"
+            });
+
+        }, 5000);
+
         child.on("close", (code, signal) => {
 
+            clearTimeout(timeout);
+
             let runtimeMsg = "";
+
+            console.log("📌 EXIT CODE:", code);
+            console.log("📌 SIGNAL:", signal);
+
+            /* ---------- LINUX ---------- */
 
             if (signal === "SIGSEGV") {
 
@@ -293,13 +328,15 @@ app.post('/compile', (req, res) => {
                     "Division by zero error";
             }
 
+            /* ---------- WINDOWS ---------- */
+
             else if (code === 3221225477 || code === 136) {
 
                 runtimeMsg =
                     "Division by zero error";
             }
 
-            else if (code === 3221225620) {
+            else if (code === 3221225620 || code === 139) {
 
                 runtimeMsg =
                     "Memory access violation / buffer overflow";
@@ -311,6 +348,8 @@ app.post('/compile', (req, res) => {
                     `Runtime Error (exit code ${code})`;
             }
 
+            /* ---------- CLEANUP ---------- */
+
             try {
 
                 fs.existsSync(file) &&
@@ -321,12 +360,15 @@ app.post('/compile', (req, res) => {
 
             } catch {}
 
+            /* ---------- RESPONSE ---------- */
+
             res.json({
 
                 output:
                     output.trim() || "",
 
-                compileError: "",
+                compileError:
+                    warnings,
 
                 runtimeError:
                     error || runtimeMsg
