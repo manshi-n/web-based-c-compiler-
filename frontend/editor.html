@@ -2,82 +2,128 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>AI Compiler</title>
+<title>AI Code Compiler</title>
 
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
 :root {
-    --bg: #1e1e24;
-    --card: #2a2a30;
-    --accent: #21ba45;
+    --bg1: #0f172a;
+    --bg2: #1e293b;
+    --card: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.1);
+    --accent: #00ff99;
+    --accent2: #00b7ff;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
 }
 
 body {
-    margin: 0;
-    background: var(--bg);
-    color: #fff;
-    font-family: Segoe UI;
+    height: 100vh;
+    overflow: hidden;
+    background: linear-gradient(-45deg, var(--bg1), var(--bg2), #0b1220, #111827);
+    background-size: 400% 400%;
+    animation: bgMove 10s ease infinite;
+    color: white;
 }
 
-/* TOP BAR */
+@keyframes bgMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
 #topbar {
-    height: 50px;
-    background: #111;
+    height: 55px;
     display: flex;
     align-items: center;
     padding: 0 20px;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
 }
 
 button {
-    background: var(--accent);
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
     border: none;
-    padding: 8px 20px;
-    color: white;
-    font-weight: bold;
+    padding: 10px 18px;
+    border-radius: 8px;
+    color: black;
+    font-weight: 700;
     cursor: pointer;
+    transition: 0.3s;
+    box-shadow: 0 0 15px rgba(0,255,153,0.2);
 }
 
-/* LAYOUT FIXED */
+button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 25px rgba(0,255,153,0.4);
+}
+
 #container {
     display: grid;
-    grid-template-columns: 65% 35%;  /* 🔥 bigger right panel */
-    height: calc(100vh - 50px);
+    grid-template-columns: 65% 35%;
+    height: calc(100vh - 55px);
 }
 
-/* EDITOR */
 #editor {
-    height: 100%;
+    border-right: 1px solid var(--border);
 }
 
-/* RIGHT PANEL */
 #right {
-    padding: 10px;
+    padding: 15px;
     overflow-y: auto;
 }
 
-/* CARDS */
 .card {
     background: var(--card);
-    padding: 12px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-    border-left: 4px solid var(--accent);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    padding: 14px;
+    margin-bottom: 12px;
+    border-radius: 12px;
 }
 
 .card h3 {
-    margin: 0 0 8px;
     font-size: 12px;
-    color: #aaa;
+    margin-bottom: 8px;
+    color: #9ca3af;
 }
 
 pre {
-    margin: 0;
     font-size: 13px;
     white-space: pre-wrap;
+    line-height: 1.4;
+}
+
+#right::-webkit-scrollbar {
+    width: 6px;
+}
+
+#right::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 10px;
+}
+
+.loading {
+    color: var(--accent);
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0.3; }
 }
 </style>
 
 <script>
-var require = { paths: { "vs": "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs" } };
+var require = {
+    paths: { "vs": "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs" }
+};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
 
@@ -86,7 +132,7 @@ var require = { paths: { "vs": "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.
 <body>
 
 <div id="topbar">
-    <button onclick="runCode()">▶ RUN & ANALYZE</button>
+    <button onclick="runCode()">▶ Run & Analyze</button>
 </div>
 
 <div id="container">
@@ -94,15 +140,14 @@ var require = { paths: { "vs": "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.
     <div id="editor"></div>
 
     <div id="right">
+
         <div class="card"><h3>🔴 BEFORE</h3><pre id="before">-</pre></div>
         <div class="card"><h3>🟢 AFTER</h3><pre id="after">-</pre></div>
         <div class="card"><h3>💡 EXPLANATION</h3><pre id="explanation">-</pre></div>
         <div class="card"><h3>⚙️ OUTPUT</h3><pre id="output">-</pre></div>
         <div class="card"><h3>❌ ERRORS</h3><pre id="errors">-</pre></div>
-        <div class="card"><h3>⚡ COMPLEXITY</h3><pre id="complexity">-</pre></div>
-        <div class="card"><h3>🛡️ SAFETY</h3><pre id="safety">-</pre></div>
-    </div>
 
+    </div>
 </div>
 
 <script>
@@ -113,7 +158,9 @@ require(["vs/editor/editor.main"], function () {
         value: `#include <stdio.h>\nint main(){return 0;}`,
         language: "c",
         theme: "vs-dark",
-        automaticLayout: true
+        automaticLayout: true,
+        fontSize: 14,
+        minimap: { enabled: false }
     });
 });
 
@@ -121,31 +168,32 @@ async function runCode() {
 
     const code = editor.getValue();
 
-    document.getElementById("before").textContent = code;
-    document.getElementById("output").textContent = "Running...";
+    document.getElementById("output").innerHTML =
+        "<span class='loading'>Running...</span>";
+
     document.getElementById("errors").textContent = "...";
 
     try {
-        /* COMPILE */
+
         const comp = await fetch("http://localhost:5000/compile", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({code,language:"c"})
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({code,language:"c"})
         });
 
         const compData = await comp.json();
 
-        document.getElementById("output").textContent = compData.output;
-        document.getElementById("errors").textContent =
-            compData.compileError || compData.runtimeError || "No errors ✅";
+        document.getElementById("output").textContent =
+            compData.output || "No output";
 
-        /* AI ANALYSIS ONLY */
+        document.getElementById("errors").textContent =
+            compData.compileError || compData.runtimeError || "No errors";
+
         const ana = await fetch("http://localhost:5000/analyze", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({
                 code,
-                mode:"ai",
                 compileError: compData.compileError,
                 runtimeError: compData.runtimeError
             })
@@ -153,13 +201,18 @@ async function runCode() {
 
         const data = await ana.json();
 
-        document.getElementById("after").textContent = data.after;
-        document.getElementById("explanation").textContent = data.explanation;
-        document.getElementById("complexity").textContent = data.complexity;
-        document.getElementById("safety").textContent = data.safety;
+        document.getElementById("before").textContent =
+            data.before || code;
+
+        document.getElementById("after").textContent =
+            data.after || "No AI output";
+
+        document.getElementById("explanation").textContent =
+            data.explanation || "No explanation";
 
     } catch (err) {
-        document.getElementById("errors").textContent = err.message;
+        document.getElementById("errors").textContent =
+            "❌ Server error: backend not reachable";
     }
 }
 </script>
