@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { exec, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const Groq = require("groq-sdk");
@@ -11,14 +11,7 @@ const app = express();
 
 /* ---------- MIDDLEWARE ---------- */
 app.use(cors());
-app.use(express.json());
-
-/* ---------- FRONTEND ---------- */
-app.use(express.static(path.join(__dirname, '../frontend')));
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
-});
+app.use(express.json({ limit: "1mb" }));
 
 /* ---------- GROQ ---------- */
 const groq = new Groq({
@@ -27,8 +20,13 @@ const groq = new Groq({
 
 /* ---------- TEMP DIR ---------- */
 const TEMP_DIR = path.join(__dirname, 'temp');
-if (!fs.existsSync(TEMP_DIR)) {
-    fs.mkdirSync(TEMP_DIR);
+if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
+
+/* ---------- AI CACHE (IMPORTANT) ---------- */
+const cache = new Map();
+
+function getCacheKey(code) {
+    return Buffer.from(code).toString("base64").slice(0, 60);
 }
 
 /* ---------- CLEAN CODE ---------- */
@@ -38,12 +36,9 @@ function cleanCode(code) {
 
 /* ---------- COMPLEXITY ---------- */
 function estimateComplexity(code) {
-    const nestedLoopPattern =
-        /for[\s\S]*?{[\s\S]*?(for|while)|while[\s\S]*?{[\s\S]*?(for|while)/;
-
     const loops = (code.match(/\b(for|while)\b/g) || []).length;
 
-    if (nestedLoopPattern.test(code)) return "O(n^2)";
+    if (/for[\s\S]*for|while[\s\S]*while/.test(code)) return "O(n^2)";
     if (loops === 1) return "O(n)";
     if (loops === 0) return "O(1)";
     if (loops >= 3) return "O(n^k)";
@@ -58,7 +53,6 @@ function safetyScore(code) {
     if (/gets\s*\(/.test(code)) score -= 40;
     if (/strcpy\s*\(/.test(code)) score -= 25;
     if (/scanf\s*\(/.test(code)) score -= 10;
-    if (/\*\s*\w+\s*;/.test(code)) score -= 15;
     if (/\/\s*0/.test(code)) score -= 20;
 
     return Math.max(score, 0) + "%";
@@ -66,18 +60,9 @@ function safetyScore(code) {
 
 /* ---------- AI ---------- */
 async function getAISuggestion(code, compileError, runtimeError) {
-    try {
-        const response = await groq.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-                {
-                    role: "system",
-                    content: "You are an expert C debugger and code optimizer. Return STRICT format only."
-                },
-                {
-                    role: "user",
-                    content: `
-Fix this C code and optimize it.
+
+    const prompt = `
+Fix and optimize C code.
 
 CODE:
 ${code}
@@ -85,17 +70,17 @@ ${code}
 ERROR:
 ${compileError || runtimeError || "None"}
 
-RETURN FORMAT:
+Return format STRICT:
 
 BEFORE:
 <code>
 
 AFTER:
-<fixed optimized C code (ONLY ONE MAIN FUNCTION)>
+<fixed code (ONLY ONE main function)>
 
 EXPLANATION:
 - bullet points
-- include complexity + safety reasoning
+- complexity + safety reasoning
 
 COMPLEXITY_BEFORE:
 O(...)
@@ -108,17 +93,61 @@ X%
 
 SAFETY_AFTER:
 X%
-`
-                }
-            ],
-            temperature: 0.2
-        });
+`;
 
-        return response.choices?.[0]?.message?.content || null;
+    const key = getCacheKey(code);
+
+    if (cache.has(key)) return cache.get(key);
+
+    try {
+        const result = await Promise.race([
+            groq.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                messages: [
+                    { role: "system", content: "You are a strict C code analyzer." },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.2
+            }),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("timeout")), 15000)
+            )
+        ]);
+
+        const text = result?.choices?.[0]?.message?.content || null;
+
+        cache.set(key, text);
+
+        return text;
 
     } catch (err) {
         console.log("❌ GROQ ERROR:", err.message);
-        return null;
+
+        const fallback = `
+BEFORE:
+${code}
+
+AFTER:
+${code}
+
+EXPLANATION:
+- AI unavailable (fallback mode)
+
+COMPLEXITY_BEFORE:
+O(?)
+
+COMPLEXITY_AFTER:
+O(?)
+
+SAFETY_BEFORE:
+100%
+
+SAFETY_AFTER:
+100%
+`;
+
+        cache.set(key, fallback);
+        return fallback;
     }
 }
 
@@ -137,53 +166,65 @@ function extractBlock(text, label) {
         .trim();
 }
 
-/* ---------- VALIDATION ---------- */
-function isValidAI(text) {
-    if (!text) return false;
+/* ---------- CLEAN OLD FILES (IMPORTANT) ---------- */
+setInterval(() => {
+    fs.readdir(TEMP_DIR, (err, files) => {
+        if (err) return;
 
-    return (
-        text.includes("AFTER:") &&
-        text.includes("EXPLANATION:") &&
-        text.includes("COMPLEXITY_BEFORE:") &&
-        text.includes("COMPLEXITY_AFTER:") &&
-        text.includes("SAFETY_BEFORE:") &&
-        text.includes("SAFETY_AFTER:")
-    );
-}
+        files.forEach(file => {
+            const filePath = path.join(TEMP_DIR, file);
 
-/* ---------- COMPILE ---------- */
+            fs.stat(filePath, (err, stat) => {
+                if (err) return;
+
+                if (Date.now() - stat.mtimeMs > 10 * 60 * 1000) {
+                    fs.unlink(filePath, () => {});
+                }
+            });
+        });
+    });
+}, 5 * 60 * 1000);
+
+/* ---------- COMPILE (SAFE SPAWN) ---------- */
 app.post('/compile', (req, res) => {
 
     let { code, language } = req.body;
-
     code = cleanCode(code);
 
-    const ext = language === 'cpp' ? 'cpp' : 'c';
     const id = Date.now() + Math.floor(Math.random() * 10000);
 
-    const file = path.join(TEMP_DIR, `prog_${id}.${ext}`);
-
+    const file = path.join(TEMP_DIR, `prog_${id}.${language === 'cpp' ? 'cpp' : 'c'}`);
     const exe = process.platform === "win32"
         ? path.join(TEMP_DIR, `prog_${id}.exe`)
         : path.join(TEMP_DIR, `prog_${id}`);
 
     fs.writeFileSync(file, code);
 
-    const cmd = language === 'cpp'
-        ? `g++ -Wall -Wextra "${file}" -o "${exe}"`
-        : `gcc -Wall -Wextra "${file}" -o "${exe}"`;
+    const compiler = language === 'cpp' ? 'g++' : 'gcc';
 
-    exec(cmd, (compileErr, stdout, stderr) => {
+    const compile = spawn(compiler, [
+        '-Wall',
+        '-Wextra',
+        file,
+        '-o',
+        exe
+    ]);
 
-        if (compileErr) {
+    let compileError = "";
+
+    compile.stderr.on("data", d => compileError += d.toString());
+
+    compile.on("close", (code) => {
+
+        if (code !== 0) {
             return res.json({
                 output: "",
-                compileError: stderr || compileErr.message,
+                compileError,
                 runtimeError: ""
             });
         }
 
-        const child = spawn(exe, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+        const child = spawn(exe, []);
 
         let output = "";
         let error = "";
@@ -198,7 +239,7 @@ app.post('/compile', (req, res) => {
             child.kill();
             return res.json({
                 output,
-                compileError: stderr || "",
+                compileError,
                 runtimeError: "Execution timeout"
             });
         }, 5000);
@@ -213,12 +254,14 @@ app.post('/compile', (req, res) => {
             else if (signal === "SIGFPE") runtimeMsg = "Division by zero";
             else if (code !== 0) runtimeMsg = `Runtime Error ${code}`;
 
-            fs.existsSync(file) && fs.unlinkSync(file);
-            fs.existsSync(exe) && fs.unlinkSync(exe);
+            try {
+                fs.unlinkSync(file);
+                fs.unlinkSync(exe);
+            } catch {}
 
             res.json({
                 output: output.trim(),
-                compileError: stderr || "",
+                compileError,
                 runtimeError: error || runtimeMsg
             });
         });
@@ -237,11 +280,11 @@ app.post('/analyze', async (req, res) => {
 
     const aiText = await getAISuggestion(code, compileError, runtimeError);
 
-    if (!aiText || !aiText.includes("AFTER:")) {
+    if (!aiText) {
         return res.json({
             before: code,
             after: code,
-            explanation: "AI failed",
+            explanation: "AI unavailable",
             complexity: `Before: ${beforeComplexity}\nAfter: ${beforeComplexity}`,
             safety: `Before: ${beforeSafety}\nAfter: ${beforeSafety}`
         });
@@ -264,5 +307,5 @@ After: ${safetyScore(afterCode)}`
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Backend running on port ${PORT}`);
+    console.log(`🚀 Production Compiler running on ${PORT}`);
 });
