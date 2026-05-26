@@ -39,12 +39,8 @@ body::before{
 }
 
 @keyframes bgmove{
-    from{
-        transform:scale(1);
-    }
-    to{
-        transform:scale(1.1);
-    }
+    from{ transform:scale(1); }
+    to{ transform:scale(1.1); }
 }
 
 /* Navbar */
@@ -95,9 +91,7 @@ nav ul li a:hover{
     gap:50px;
 }
 
-.left{
-    flex:1;
-}
+.left{ flex:1; }
 
 .left h1{
     font-size:65px;
@@ -153,7 +147,7 @@ nav ul li a:hover{
     color:black;
 }
 
-/* Right Side Card */
+/* Right Card */
 
 .right{
     flex:1;
@@ -171,33 +165,18 @@ nav ul li a:hover{
     animation:float 4s ease-in-out infinite;
 }
 
-.glass h2{
-    color:#00ffcc;
-    margin-bottom:20px;
-}
-
-.glass p{
-    color:#ccc;
-    line-height:1.8;
-}
+.glass h2{ color:#00ffcc; margin-bottom:20px; }
+.glass p{ color:#ccc; line-height:1.8; }
 
 @keyframes float{
-    0%{
-        transform:translateY(0px);
-    }
-    50%{
-        transform:translateY(-15px);
-    }
-    100%{
-        transform:translateY(0px);
-    }
+    0%{transform:translateY(0px);}
+    50%{transform:translateY(-15px);}
+    100%{transform:translateY(0px);}
 }
 
 /* Sections */
 
-section{
-    padding:100px 8%;
-}
+section{ padding:100px 8%; }
 
 .section-title{
     text-align:center;
@@ -205,9 +184,7 @@ section{
     margin-bottom:60px;
 }
 
-.section-title span{
-    color:#00ffcc;
-}
+.section-title span{ color:#00ffcc; }
 
 /* Features */
 
@@ -230,17 +207,10 @@ section{
     box-shadow:0 0 25px rgba(0,255,204,0.3);
 }
 
-.card h3{
-    margin-bottom:15px;
-    color:#00ffcc;
-}
+.card h3{ color:#00ffcc; margin-bottom:15px; }
+.card p{ color:#ccc; line-height:1.7; }
 
-.card p{
-    color:#ccc;
-    line-height:1.7;
-}
-
-/* Compiler Options */
+/* Compiler */
 
 .compiler-options{
     display:grid;
@@ -255,10 +225,7 @@ section{
     border:1px solid rgba(255,255,255,0.1);
 }
 
-.option-box h3{
-    color:#00ffcc;
-    margin-bottom:15px;
-}
+.option-box h3{ color:#00ffcc; margin-bottom:15px; }
 
 /* Team */
 
@@ -278,9 +245,7 @@ section{
     transition:0.4s;
 }
 
-.member:hover{
-    transform:scale(1.05);
-}
+.member:hover{ transform:scale(1.05); }
 
 .member h3{
     margin-top:15px;
@@ -296,7 +261,6 @@ section{
 .contact p{
     margin-top:15px;
     color:#ccc;
-    line-height:1.8;
 }
 
 /* Footer */
@@ -311,20 +275,9 @@ footer{
 /* Responsive */
 
 @media(max-width:900px){
-
-.hero{
-    flex-direction:column;
-    text-align:center;
-}
-
-.left h1{
-    font-size:45px;
-}
-
-.buttons{
-    justify-content:center;
-}
-
+.hero{ flex-direction:column; text-align:center; }
+.left h1{ font-size:45px; }
+.buttons{ justify-content:center; }
 }
 
 </style>
@@ -333,140 +286,99 @@ footer{
 <body>
 
 <!-- Navbar -->
-
 <nav>
-
 <div class="logo">C Compiler</div>
-
 <ul>
 <li><a href="#features">Features</a></li>
 <li><a href="#compiler">Compiler</a></li>
 <li><a href="#team">Team</a></li>
 <li><a href="#contact">Contact</a></li>
 </ul>
-
 </nav>
 
-<!-- Hero Section -->
-
+<!-- Hero -->
 <div class="hero">
 
 <div class="left">
-
-<h1>
-Build & Run <span>C Programs</span><br>
-Directly in Browser
-</h1>
-
+<h1>Build & Run <span>C Programs</span><br>Directly in Browser</h1>
 <p>
 An AI-powered Web Based C Compiler that allows users to write,
-compile, analyze, and execute C/C++ programs instantly with
-smart code suggestions and modern UI experience.
+compile, analyze, and execute C/C++ programs instantly.
 </p>
 
 <div class="buttons">
-
-<button class="btn primary" onclick="startCoding()">
-🚀 Start Coding
-</button>
-
-<button class="btn secondary">
-📘 Learn More
-</button>
-
+<button class="btn primary" onclick="startCoding()">🚀 Start Coding</button>
+<button class="btn secondary">📘 Learn More</button>
 </div>
-
 </div>
 
 <div class="right">
-
 <div class="glass">
-
 <h2>⚡ About Project</h2>
-
 <p>
-This compiler provides a fast and interactive coding environment
-for beginners and developers. It supports real-time execution,
-AI suggestions, output visualization, and modern responsive design.
+Fast coding environment with AI suggestions and real-time execution.
 </p>
-
 </div>
-
 </div>
 
 </div>
 
 <!-- Features -->
-
 <section id="features">
 
-<h1 class="section-title">
-Project <span>Features</span>
-</h1>
+<h1 class="section-title">Project <span>Features</span></h1>
 
 <div class="features">
 
 <div class="card">
 <h3>💻 Online Code Editor</h3>
-<p>
-Write and edit C/C++ code directly in browser with smooth UI.
-</p>
+<p>Write and run C/C++ code instantly.</p>
 </div>
 
 <div class="card">
 <h3>⚡ Instant Compilation</h3>
-<p>
-Compile and run code in real-time with fast backend response.
-</p>
+<p>Fast backend compilation system.</p>
 </div>
 
 <div class="card">
 <h3>🤖 AI Suggestions</h3>
-<p>
-Get intelligent coding suggestions and optimization tips.
-</p>
+<p>Smart code analysis and fixes.</p>
 </div>
 
 <div class="card">
 <h3>📱 Responsive Design</h3>
-<p>
-Works smoothly on desktop, tablet, and mobile devices.
-</p>
+<p>Works on all devices.</p>
+</div>
+
+<!-- NEW FEATURE -->
+<div class="card">
+<h3>🔄 Code Converter</h3>
+<p>Convert C code into Java, C++ and Python instantly using AI.</p>
 </div>
 
 </div>
 
 </section>
 
-<!-- Compiler Options -->
-
+<!-- Compiler -->
 <section id="compiler">
-
-<h1 class="section-title">
-Compiler <span>Modules</span>
-</h1>
+<h1 class="section-title">Compiler <span>Modules</span></h1>
 
 <div class="compiler-options">
 
 <div class="option-box">
 <h3>🧠 Smart Analysis</h3>
-<p>
-Analyze code quality and detect common coding mistakes.
-</p>
+<p>Detect coding mistakes automatically.</p>
 </div>
 
 <div class="option-box">
 <h3>🔒 Secure Backend</h3>
-<p>
-Node.js and Express backend securely handles API requests.
-</p>
+<p>Safe Node.js execution system.</p>
 </div>
 
 <div class="option-box">
 <h3>📤 Output Console</h3>
-<p>
-Displays compilation results, runtime output, and errors.
-</p>
+<p>Shows results and errors.</p>
 </div>
 
 </div>
@@ -474,72 +386,46 @@ Displays compilation results, runtime output, and errors.
 </section>
 
 <!-- Team -->
-
 <section id="team">
 
-<h1 class="section-title">
-Team <span>Members</span>
-</h1>
+<h1 class="section-title">Team <span>Members</span></h1>
 
 <div class="team">
 
-<div class="member">
-<h3>Manshi</h3>
-<p>Frontend Developer</p>
-</div>
-
-<div class="member">
-<h3>Team Member 2</h3>
-<p>Backend Developer</p>
-</div>
-
-<div class="member">
-<h3>Team Member 3</h3>
-<p>Database / API Integration</p>
-</div>
+<div class="member"><h3>Manshi</h3></div>
+<div class="member"><h3>Nandini</h3></div>
+<div class="member"><h3>Tanisha</h3></div>
+<div class="member"><h3>Vedika</h3></div>
 
 </div>
 
 </section>
 
 <!-- Contact -->
-
 <section id="contact">
 
-<h1 class="section-title">
-Contact <span>Details</span>
-</h1>
+<h1 class="section-title">Contact <span>Details</span></h1>
 
 <div class="contact">
 
-<p>
-📧 Email: yourmail@gmail.com
-</p>
+<p>📧 Email: yourmail@gmail.com</p>
 
-<p>
-🌐 GitHub: github.com/yourprofile
-</p>
+<p>🌐 GitHub: https://github.com/manshi-n/web-based-c-compiler-</p>
 
-<p>
-📍 Uttarakhand, India
-</p>
+<p>📍 Uttarakhand, India</p>
 
 </div>
 
 </section>
-
-<!-- Footer -->
 
 <footer>
 © 2026 Web Based C Compiler | Designed with ❤️
 </footer>
 
 <script>
-
 function startCoding(){
     window.location.href="editor.html";
 }
-
 </script>
 
 </body>
