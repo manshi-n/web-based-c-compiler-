@@ -10,10 +10,12 @@ const Groq = require("groq-sdk");
 const app = express();
 
 /* ---------- MIDDLEWARE ---------- */
+
 app.use(cors());
 app.use(express.json());
 
 /* ---------- FRONTEND ---------- */
+
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.get('/', (req, res) => {
@@ -21,27 +23,37 @@ app.get('/', (req, res) => {
 });
 
 /* ---------- GROQ ---------- */
+
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
 });
 
-/* ---------- TEMP DIR ---------- */
+/* ---------- TEMP DIRECTORY ---------- */
+
 const TEMP_DIR = path.join(__dirname, 'temp');
+
 if (!fs.existsSync(TEMP_DIR)) {
     fs.mkdirSync(TEMP_DIR);
 }
 
 /* ---------- CLEAN CODE ---------- */
+
 function cleanCode(code) {
-    return code ? code.replace(/```[a-z]*|```/g, "").trim() : "";
+
+    return code
+        ? code.replace(/```[a-z]*|```/g, "").trim()
+        : "";
 }
 
-/* ---------- COMPLEXITY ---------- */
+/* ---------- FALLBACK COMPLEXITY ---------- */
+
 function estimateComplexity(code) {
+
     const nestedLoopPattern =
         /for[\s\S]*?{[\s\S]*?(for|while)|while[\s\S]*?{[\s\S]*?(for|while)/;
 
-    const loops = (code.match(/\b(for|while)\b/g) || []).length;
+    const loops =
+        (code.match(/\b(for|while)\b/g) || []).length;
 
     if (nestedLoopPattern.test(code)) return "O(n^2)";
     if (loops === 1) return "O(n)";
@@ -51,24 +63,49 @@ function estimateComplexity(code) {
     return "O(n)";
 }
 
-/* ---------- SAFETY ---------- */
+/* ---------- FALLBACK SAFETY ---------- */
+
 function safetyScore(code) {
+
     let score = 100;
 
     if (/gets\s*\(/.test(code)) score -= 40;
+
     if (/strcpy\s*\(/.test(code)) score -= 25;
+
     if (/scanf\s*\(/.test(code)) score -= 10;
+
     if (/\*\s*\w+\s*;/.test(code)) score -= 15;
+
     if (/\/\s*0/.test(code)) score -= 20;
 
     return Math.max(score, 0) + "%";
 }
 
-/* ---------- AI (FIXED + SAFE) ---------- */
+/* ---------- AI ---------- */
+
 async function getAISuggestion(code, compileError, runtimeError) {
 
-    const prompt = `
-Fix and optimize this C code.
+    try {
+
+        const response =
+            await groq.chat.completions.create({
+
+                model: "llama-3.3-70b-versatile",
+
+                messages: [
+
+                    {
+                        role: "system",
+                        content:
+                            "You are an expert C debugger and code analyzer."
+                    },
+
+                    {
+                        role: "user",
+                        content: `
+
+Analyze and fix this C code.
 
 CODE:
 ${code}
@@ -76,86 +113,90 @@ ${code}
 ERROR:
 ${compileError || runtimeError || "None"}
 
-STRICT FORMAT:
+────────────────────────
+
+RULES:
+1. Fix ALL bugs
+2. Maintain correct logic
+3. Calculate REAL time complexity
+4. Calculate SAFETY score using ONLY these rules:
+   gets() → -40
+   strcpy() → -25
+   scanf() → -10
+   uninitialized pointer → -15
+   division by zero → -20
+
+────────────────────────
+
+Return EXACT format:
 
 BEFORE:
-<code>
+${code}
 
 AFTER:
-<fixed working C code (ONLY ONE main function)>
+<fixed and optimized C code with no errors or bugs>
+
+────────────────────────
 
 EXPLANATION:
-- bullet points
-- include what was wrong
-- what was fixed
-- time complexity before vs after
-- safety reasoning
+- Short explanation in bullet points
+- Must include:
+  • What was wrong in original code
+  • What was fixed
+  • Why improvement is better
 
-COMPLEXITY_BEFORE:
-O(...)
+────────────────────────
 
-COMPLEXITY_AFTER:
-O(...)
+TIME COMPLEXITY:
+- Before:
+- After:
+(keep this section separate from explanation)
 
-SAFETY_BEFORE:
-X%
+────────────────────────
 
-SAFETY_AFTER:
-X%
-`;
+SAFETY SCORE:
+- Before:
+- After:
+(Show calculation clearly like: 100 - 40 - 10 = 50)
 
-    try {
-        const response = await Promise.race([
-            groq.chat.completions.create({
-                model: "llama-3.3-70b-versatile",
-                messages: [
-                    { role: "system", content: "You are a strict C code analyzer." },
-                    { role: "user", content: prompt }
+────────────────────────
+
+RULES FOR FORMAT:
+- Explanation, Time Complexity, and Safety Score must be clearly separated using line breaks
+- Do NOT mix sections
+- Keep formatting strict and consistent
+`
+                    }
                 ],
+
                 temperature: 0.2
-            }),
+            });
 
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("timeout")), 15000)
-            )
-        ]);
+        console.log("✅ GROQ RESPONSE:");
+        console.log(response.choices[0].message.content);
 
-        return response?.choices?.[0]?.message?.content || null;
+        return response.choices[0].message.content;
 
     } catch (err) {
+
         console.log("❌ GROQ ERROR:", err.message);
 
-        // ALWAYS fallback (IMPORTANT for deployment)
-        return `
-BEFORE:
-${code}
-
-AFTER:
-${code}
-
-EXPLANATION:
-- AI unavailable (fallback mode)
-
-COMPLEXITY_BEFORE:
-O(?)
-
-COMPLEXITY_AFTER:
-O(?)
-
-SAFETY_BEFORE:
-100%
-
-SAFETY_AFTER:
-100%
-`;
+        return null;
     }
 }
 
 /* ---------- EXTRACT ---------- */
+
 function extractBlock(text, label) {
+
     if (!text) return "-";
 
-    const regex = new RegExp(label + ":[\\s\\S]*?(?=\\n[A-Z_]+:|$)", "i");
+    const regex =
+        new RegExp(
+            label + ":[\\s\\S]*?(?=\\n[A-Z_]+:|$)",
+            "i"
+        );
+
     const match = text.match(regex);
 
     if (!match) return "-";
@@ -166,31 +207,64 @@ function extractBlock(text, label) {
         .trim();
 }
 
+/* ---------- VALIDATE ---------- */
+
+function isValidAI(text) {
+
+    return text &&
+        text.includes("AFTER:") &&
+        text.includes("EXPLANATION:") &&
+        text.includes("COMPLEXITY_BEFORE:") &&
+        text.includes("COMPLEXITY_AFTER:") &&
+        text.includes("SAFETY_BEFORE:") &&
+        text.includes("SAFETY_AFTER:");
+}
+
 /* ---------- COMPILE ---------- */
+
 app.post('/compile', (req, res) => {
 
     let { code, language } = req.body;
 
     code = cleanCode(code);
 
-    const ext = language === 'cpp' ? 'cpp' : 'c';
-    const id = Date.now() + Math.floor(Math.random() * 10000);
+    const ext =
+        language === 'cpp' ? 'cpp' : 'c';
 
-    const file = path.join(TEMP_DIR, `prog_${id}.${ext}`);
+    const id = Date.now();
 
-    const exe = process.platform === "win32"
-        ? path.join(TEMP_DIR, `prog_${id}.exe`)
-        : path.join(TEMP_DIR, `prog_${id}`);
+    const file =
+        path.join(TEMP_DIR, `prog_${id}.${ext}`);
+
+    /* ---------- WINDOWS + LINUX EXECUTABLE ---------- */
+
+    const exe =
+        process.platform === "win32"
+            ? path.join(TEMP_DIR, `prog_${id}.exe`)
+            : path.join(TEMP_DIR, `prog_${id}`);
 
     fs.writeFileSync(file, code);
 
-    const cmd = language === 'cpp'
-        ? `g++ -Wall -Wextra "${file}" -o "${exe}"`
-        : `gcc -Wall -Wextra "${file}" -o "${exe}"`;
+    const cmd =
+        language === 'cpp'
+            ? `g++ -Wall -Wextra "${file}" -o "${exe}"`
+            : `gcc -Wall -Wextra "${file}" -o "${exe}"`;
+
+    console.log("🛠 Compile Command:", cmd);
 
     exec(cmd, (compileErr, stdout, stderr) => {
 
+        /* ---------- COMPILE ERROR ---------- */
+
         if (compileErr) {
+
+            console.log("❌ COMPILE ERROR:");
+            console.log(stderr || compileErr.message);
+
+            try {
+                fs.existsSync(file) && fs.unlinkSync(file);
+            } catch {}
+
             return res.json({
                 output: "",
                 compileError: stderr || compileErr.message,
@@ -198,27 +272,50 @@ app.post('/compile', (req, res) => {
             });
         }
 
+        /* ---------- WARNINGS ---------- */
+
+        let warnings = "";
+
+        if (stderr && stderr.trim() !== "") {
+            warnings = stderr;
+        }
+
+        console.log("✅ COMPILE SUCCESS");
+
+        /* ---------- RUN PROGRAM ---------- */
+
         const child = spawn(exe, [], {
             stdio: ['pipe', 'pipe', 'pipe']
         });
 
         let output = "";
         let error = "";
-        let compileWarnings = stderr || "";
+
+        /* ---------- AUTO INPUT ---------- */
 
         child.stdin.write("test\n");
         child.stdin.end();
 
-        child.stdout.on("data", d => output += d.toString());
-        child.stderr.on("data", d => error += d.toString());
+        child.stdout.on("data", (data) => {
+            output += data.toString();
+        });
+
+        child.stderr.on("data", (data) => {
+            error += data.toString();
+        });
+
+        /* ---------- TIMEOUT ---------- */
 
         const timeout = setTimeout(() => {
+
             child.kill();
+
             return res.json({
                 output,
-                compileError: compileWarnings,
-                runtimeError: "Execution timeout"
+                compileError: warnings,
+                runtimeError: "Execution timeout (possible infinite loop)"
             });
+
         }, 5000);
 
         child.on("close", (code, signal) => {
@@ -227,60 +324,154 @@ app.post('/compile', (req, res) => {
 
             let runtimeMsg = "";
 
-            if (signal === "SIGSEGV") runtimeMsg = "Segmentation Fault";
-            else if (signal === "SIGFPE") runtimeMsg = "Division by zero";
-            else if (code !== 0) runtimeMsg = `Runtime Error ${code}`;
+            console.log("📌 EXIT CODE:", code);
+            console.log("📌 SIGNAL:", signal);
+
+            /* ---------- LINUX ---------- */
+
+            if (signal === "SIGSEGV") {
+
+                runtimeMsg =
+                    "Segmentation Fault (Invalid memory access)";
+            }
+
+            else if (signal === "SIGFPE") {
+
+                runtimeMsg =
+                    "Division by zero error";
+            }
+
+            /* ---------- WINDOWS ---------- */
+
+            else if (code === 3221225477 || code === 136) {
+
+                runtimeMsg =
+                    "Division by zero error";
+            }
+
+            else if (code === 3221225620 || code === 139) {
+
+                runtimeMsg =
+                    "Memory access violation / buffer overflow";
+            }
+
+            else if (code !== 0) {
+
+                runtimeMsg =
+                    `Runtime Error (exit code ${code})`;
+            }
+
+            /* ---------- CLEANUP ---------- */
 
             try {
-                fs.existsSync(file) && fs.unlinkSync(file);
-                fs.existsSync(exe) && fs.unlinkSync(exe);
+
+                fs.existsSync(file) &&
+                    fs.unlinkSync(file);
+
+                fs.existsSync(exe) &&
+                    fs.unlinkSync(exe);
+
             } catch {}
 
+            /* ---------- RESPONSE ---------- */
+
             res.json({
-                output: output.trim(),
-                compileError: compileWarnings,
-                runtimeError: error || runtimeMsg
+
+                output:
+                    output.trim() || "",
+
+                compileError:
+                    warnings,
+
+                runtimeError:
+                    error || runtimeMsg
             });
         });
     });
 });
 
-/* ---------- ANALYZE (FIXED SAFETY) ---------- */
+/* ---------- ANALYZE ---------- */
+
 app.post('/analyze', async (req, res) => {
 
-    let { code, compileError, runtimeError } = req.body;
+    let {
+        code,
+        compileError,
+        runtimeError
+    } = req.body;
 
     code = cleanCode(code);
 
-    const beforeComplexity = estimateComplexity(code);
-    const beforeSafety = safetyScore(code);
+    const beforeComplexity =
+        estimateComplexity(code);
 
-    const aiText = await getAISuggestion(code, compileError, runtimeError);
+    const beforeSafety =
+        safetyScore(code);
 
-    if (!aiText) {
+    const aiText =
+        await getAISuggestion(
+            code,
+            compileError,
+            runtimeError
+        );
+
+    if (!aiText || !aiText.includes("AFTER:")) {
+
         return res.json({
+
             before: code,
+
             after: code,
-            explanation: "AI unavailable",
-            complexity: `Before: ${beforeComplexity}\nAfter: ${beforeComplexity}`,
-            safety: `Before: ${beforeSafety}\nAfter: ${beforeSafety}`
+
+            explanation: "⚠️ AI failed",
+
+            complexity:
+`Before: ${beforeComplexity}
+After: ${beforeComplexity}`,
+
+            safety:
+`Before: ${beforeSafety}
+After: ${beforeSafety}`
         });
     }
 
-    const afterCode = extractBlock(aiText, "AFTER");
+    const afterCode =
+        extractBlock(aiText, "AFTER");
+
+    const beforeC =
+        extractBlock(aiText, "COMPLEXITY_BEFORE");
+
+    const afterC =
+        extractBlock(aiText, "COMPLEXITY_AFTER");
+
+    const beforeS =
+        extractBlock(aiText, "SAFETY_BEFORE");
+
+    const afterS =
+        extractBlock(aiText, "SAFETY_AFTER");
 
     res.json({
-        before: extractBlock(aiText, "BEFORE") || code,
+
+        before:
+            extractBlock(aiText, "BEFORE") || code,
+
         after: afterCode,
-        explanation: extractBlock(aiText, "EXPLANATION"),
-        complexity: `Before: ${beforeComplexity}
-After: ${estimateComplexity(afterCode)}`,
-        safety: `Before: ${beforeSafety}
-After: ${safetyScore(afterCode)}`
+
+        explanation:
+            extractBlock(aiText, "EXPLANATION"),
+
+        complexity:
+`Before: ${beforeC || beforeComplexity}
+After: ${afterC || estimateComplexity(afterCode)}`,
+
+        safety:
+`Before: ${beforeS || beforeSafety}
+After: ${afterS || safetyScore(afterCode)}`
     });
 });
 
 /* ---------- START ---------- */
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
