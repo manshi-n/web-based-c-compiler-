@@ -113,20 +113,17 @@ ${code}
 ERROR:
 ${compileError || runtimeError || "None"}
 
-────────────────────────
-
 RULES:
 1. Fix ALL bugs
 2. Maintain correct logic
 3. Calculate REAL time complexity
-4. Calculate SAFETY score using ONLY these rules:
+4. Calculate SAFETY score using:
    gets() → -40
    strcpy() → -25
    scanf() → -10
    uninitialized pointer → -15
    division by zero → -20
-
-────────────────────────
+5.Fixed code should be optimized. 
 
 Return EXACT format:
 
@@ -134,9 +131,7 @@ BEFORE:
 ${code}
 
 AFTER:
-<fixed and optimized C code with no errors or bugs>
-
-────────────────────────
+<fixed and optimized C code with no errors or bugs and you change change logic if changing logic make code more optimized and you can use dynamic programming or any other algorithm to make code optimize>
 
 EXPLANATION:
 - Short explanation in bullet points
@@ -144,27 +139,12 @@ EXPLANATION:
   • What was wrong in original code
   • What was fixed
   • Why improvement is better
+  explanation part and time complexity should be separated by a line
+  • Time complexity comparison (before vs after) also print time complexity before and after 
+  saftey score and time complexity should be separated by a line
+  • Safety reasoning (before vs after) print also saftey score for before and after and safety score base value is 100 from 100 if usafe function comes deduct otherwise no deduction and no values in minus minimum should be 0 
+  after saftey score there should be a line and then write the fixed code in java c++ and python and there should be line between java code c++ code and python code.there should be heading like java 🚀: then c++ ⚡: then python 💻: and the end also a line.
 
-────────────────────────
-
-TIME COMPLEXITY:
-- Before:
-- After:
-(keep this section separate from explanation)
-
-────────────────────────
-
-SAFETY SCORE:
-- Before:
-- After:
-(Show calculation clearly like: 100 - 40 - 10 = 50)
-
-────────────────────────
-
-RULES FOR FORMAT:
-- Explanation, Time Complexity, and Safety Score must be clearly separated using line breaks
-- Do NOT mix sections
-- Keep formatting strict and consistent
 `
                     }
                 ],
